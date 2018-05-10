@@ -7,6 +7,7 @@
  * https://stackoverflow.com/questions/32177934/best-way-to-order-an-hashmap-by-key-in-java
  * https://stackoverflow.com/questions/44367203/how-to-count-duplicate-elements-in-arraylist
  * https://www.mkyong.com/java8/java-8-collectors-groupingby-and-mapping-example/
+ * https://stackoverflow.com/questions/1066589/iterate-through-a-hashmap
  */
 import com.sun.org.apache.xerces.internal.xs.datatypes.ByteList;
 
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 public class Huffman {
 
    // TODO!!! Your instance variables here!
+   private CharNode charNodeTree;
 
    /** Constructor to build the Huffman code for a given bytearray.
     * @param original source data
@@ -29,7 +31,8 @@ public class Huffman {
    Huffman (byte[] original) {
       // TODO!!! Your constructor here!
       Map<Byte, Integer> characterFrequency = frequency(original);
-      createNodeTree(characterFrequency);
+      charNodeTree = new CharNode((byte) 0, 0 , 0 ,null, null);
+      charNodeTree.createNodeTree(characterFrequency);
       System.out.println("end");
 
    }
@@ -62,32 +65,6 @@ public class Huffman {
       return frequencyByte;
    }
 
-   private void createNodeTree(Map<Byte, Integer> frequencyList){
-      Iterator byteIterator = frequencyList.entrySet().iterator();
-      int counter = 0;
-      CharNode charNodeRoot = new CharNode((byte) -1, 0, 0, null, null);
-      while (byteIterator.hasNext()){
-         Map.Entry byteEntry = (Map.Entry) byteIterator.next();
-         byte charId = (Byte) byteEntry.getKey();
-         int charFrequency = (int) byteEntry.getValue();
-         CharNode childNode = new CharNode(charId, charFrequency, 0, null, null);
-         if (counter == 0) {
-            charNodeRoot = childNode;
-            if (byteIterator.hasNext()){
-               charNodeRoot.setBinary(1);
-            }
-         } else {
-            childNode.setSibling(charNodeRoot);
-            charNodeRoot = new CharNode((byte) -1, childNode.frequency + childNode.sibling.frequency, 1, null, childNode);
-         }
-         System.out.println("test");
-         counter++;
-      }
-      for (Map.Entry<Byte, Integer> entry: frequencyList.entrySet()) {
-         byte charId = entry.getKey();
-      }
-   }
-
    /** Length of encoded data in bits. 
     * @return number of bits
     */
@@ -95,12 +72,14 @@ public class Huffman {
       return 0; // TODO!!!
    }
 
-
    /** Encoding the byte array using this prefixcode.
     * @param origData original data
     * @return encoded data
     */
    public byte[] encode (byte [] origData) {
+      for (int i = 0; i < origData.length; i++) {
+         charNodeTree.traverseTree(origData[i]);
+      }
       return null; // TODO!!!
    }
 
@@ -128,11 +107,11 @@ public class Huffman {
 }
 
 class CharNode {
-   byte id;
-   int frequency;
-   int binary;
-   CharNode sibling;
-   CharNode firstChild;
+   private byte id;
+   private int frequency;
+   private int binary;
+   private CharNode sibling;
+   private CharNode firstChild;
 
    CharNode(byte c, int f, int bi, CharNode sib, CharNode child){
       setId(c);
@@ -145,19 +124,52 @@ class CharNode {
    private void setId(byte id) {
       this.id = id;
    }
-   public void setFrequency(int frequency) {
+   private void setFrequency(int frequency) {
       this.frequency = frequency;
    }
 
-   public void setBinary(int binary) {
+   private void setBinary(int binary) {
       this.binary = binary;
    }
 
-   public void setSibling(CharNode sibling) {
+   private void setSibling(CharNode sibling) {
       this.sibling = sibling;
    }
 
-   public void setFirstChild(CharNode firstChild) {
+   private void setFirstChild(CharNode firstChild) {
       this.firstChild = firstChild;
+   }
+
+   public void createNodeTree(Map<Byte, Integer> frequencyList){
+      Iterator byteIterator = frequencyList.entrySet().iterator();
+      int counter = 0;
+      CharNode charNodeRoot = new CharNode((byte) -1, 0, 0, null, null);
+      while (byteIterator.hasNext()){
+         Map.Entry byteEntry = (Map.Entry) byteIterator.next();
+         byte charId = (Byte) byteEntry.getKey();
+         int charFrequency = (int) byteEntry.getValue();
+         CharNode childNode = new CharNode(charId, charFrequency, 0, null, null);
+         if (counter == 0) {
+            charNodeRoot = childNode;
+            if (byteIterator.hasNext()){
+               charNodeRoot.setBinary(1);
+            }
+         } else {
+            childNode.setSibling(charNodeRoot);
+            charNodeRoot = new CharNode((byte) -1, childNode.frequency + childNode.sibling.frequency, 1, null, childNode);
+         }
+         System.out.println("test");
+         counter++;
+      }
+      this.id = charNodeRoot.id;
+      this.frequency = charNodeRoot.frequency;
+      this.binary = charNodeRoot.binary;
+      this.firstChild = charNodeRoot.firstChild;
+      this.sibling = charNodeRoot.sibling;
+   }
+
+   public byte traverseTree(byte b){
+
+      return 0;
    }
 }
