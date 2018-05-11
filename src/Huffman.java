@@ -8,10 +8,12 @@
  * https://stackoverflow.com/questions/44367203/how-to-count-duplicate-elements-in-arraylist
  * https://www.mkyong.com/java8/java-8-collectors-groupingby-and-mapping-example/
  * https://stackoverflow.com/questions/1066589/iterate-through-a-hashmap
+ * https://stackoverflow.com/questions/10093860/creating-a-byte-type-from-a-string-in-java
  */
-import com.sun.org.apache.xerces.internal.xs.datatypes.ByteList;
 
-import java.lang.reflect.Array;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+import com.sun.xml.internal.fastinfoset.util.CharArray;
+
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -24,6 +26,7 @@ public class Huffman {
 
    // TODO!!! Your instance variables here!
    private CharNode charNodeTree;
+   private byte[] encodedHuff;
 
    /** Constructor to build the Huffman code for a given bytearray.
     * @param original source data
@@ -69,7 +72,13 @@ public class Huffman {
     * @return number of bits
     */
    public int bitLength() {
-      return 0; // TODO!!!
+      StringBuilder stringBuilder = new StringBuilder();
+      for (byte b: encodedHuff) {
+         stringBuilder.append(Integer.toBinaryString(b));
+      }
+      String encodedString = stringBuilder.toString();
+
+      return encodedString.length(); // TODO!!!
    }
 
    /** Encoding the byte array using this prefixcode.
@@ -77,10 +86,12 @@ public class Huffman {
     * @return encoded data
     */
    public byte[] encode (byte [] origData) {
+      byte[] bArray = new byte[origData.length];
       for (int i = 0; i < origData.length; i++) {
-         charNodeTree.traverseTree(origData[i]);
+         bArray[i] = charNodeTree.traverseTreeEncode(origData[i]);
       }
-      return null; // TODO!!!
+      this.encodedHuff = bArray;
+      return bArray;
    }
 
    /** Decoding the byte array using this prefixcode.
@@ -88,12 +99,16 @@ public class Huffman {
     * @return decoded data (hopefully identical to original)
     */
    public byte[] decode (byte[] encodedData) {
-      return null; // TODO!!!
+      byte[] bArray = new byte[encodedData.length];
+      for (int i = 0; i < encodedData.length; i++) {
+         bArray[i] = charNodeTree.traverseTreeDecode(encodedData[i]);
+      }
+      return bArray; // TODO!!!
    }
 
    /** Main method. */
    public static void main (String[] params) {
-      String tekst = "CAAAAAAAAAAAAABBBBBBCCCDDEEFFFFFFF";
+      String tekst = "AAA";//AAAAAAABBBBBCCCDE";//CAAAAAAAAAAAAABBBBBBCCCDDEEFFFFFFF";//AAAAABBBBCCCDDDEEFF";//
       byte[] orig = tekst.getBytes();
       Huffman huf = new Huffman (orig);
       byte[] kood = huf.encode (orig);
@@ -144,11 +159,35 @@ class CharNode {
       Iterator byteIterator = frequencyList.entrySet().iterator();
       int counter = 0;
       CharNode charNodeRoot = new CharNode((byte) -1, 0, 0, null, null);
+      CharNode charNodeSibling = new CharNode((byte) -1, 0, 0, null, null);
+      Boolean rootNodeHasSibling = false;
+
       while (byteIterator.hasNext()){
          Map.Entry byteEntry = (Map.Entry) byteIterator.next();
          byte charId = (Byte) byteEntry.getKey();
          int charFrequency = (int) byteEntry.getValue();
+
          CharNode childNode = new CharNode(charId, charFrequency, 0, null, null);
+
+         if (!rootNodeHasSibling) {
+            if (charFrequency < charNodeRoot.frequency) {
+               rootNodeHasSibling = true;
+               charNodeSibling = childNode;
+               charNodeSibling.setBinary(1);
+               if (!byteIterator.hasNext()){
+                  charNodeSibling = new CharNode(childNode.id, childNode.frequency, 0, charNodeRoot, null);
+                  charNodeRoot = new CharNode((byte) -1, charNodeSibling.frequency + charNodeSibling.sibling.frequency, 1, null, charNodeSibling);
+               }
+               continue;
+            }
+         } else {
+            childNode.setSibling(charNodeSibling);
+            charNodeSibling = new CharNode((byte) -1, childNode.frequency + childNode.sibling.frequency, 0, charNodeRoot, childNode);
+            charNodeRoot = new CharNode((byte) -1, childNode.frequency + childNode.sibling.frequency, 1, null, charNodeSibling);
+            rootNodeHasSibling = false;
+            continue;
+         }
+
          if (counter == 0) {
             charNodeRoot = childNode;
             if (byteIterator.hasNext()){
@@ -161,15 +200,77 @@ class CharNode {
          System.out.println("test");
          counter++;
       }
+
+
       this.id = charNodeRoot.id;
       this.frequency = charNodeRoot.frequency;
-      this.binary = charNodeRoot.binary;
+      if (counter > 1) {
+         this.binary = -1;
+      } else {
+         this.binary = charNodeRoot.binary;
+      }
       this.firstChild = charNodeRoot.firstChild;
       this.sibling = charNodeRoot.sibling;
    }
 
-   public byte traverseTree(byte b){
+   public byte traverseTreeEncode(byte b){
+      Stack<CharNode> alternateRoute = new Stack<>();
+      Stack<StringBuilder> alternateByteString = new Stack<>();
+      CharNode currentNode = this;
+      StringBuilder byteString = new StringBuilder();
+      do {
+         if (currentNode.id == b){
+            if (byteString.toString().isEmpty()) {
+               byteString.append(currentNode.binary);
+            }
+            break;
+         }
+         if (currentNode.firstChild == null && currentNode.sibling == null){
+            //
+            if (!alternateRoute.empty()){
+               currentNode = alternateRoute.pop();
+               byteString = alternateByteString.pop();
+               byteString.deleteCharAt(byteString.length() - 1);
+            }
 
-      return 0;
+            byteString.append(currentNode.binary);
+         } else if (currentNode.firstChild == null){
+            currentNode = currentNode.sibling;
+            byteString.deleteCharAt(byteString.length() - 1);
+            byteString.append(currentNode.binary);
+         } else if (currentNode.sibling == null){
+            currentNode = currentNode.firstChild;
+            byteString.append(currentNode.binary);
+         } else {
+            alternateRoute.push(currentNode.sibling);
+            alternateByteString.push(new StringBuilder(byteString));
+            currentNode = currentNode.firstChild;
+            byteString.append(currentNode.binary);
+         }
+      }
+      while (currentNode != null);
+      System.out.println(byteString);
+      byte byteResult = (byte) Integer.parseInt(byteString.toString(), 2);
+
+      return byteResult;
+   }
+
+   public byte traverseTreeDecode(byte b){
+      CharNode currentNode = this;
+      String byteString = Integer.toBinaryString(b);
+      char[] cArray = byteString.toCharArray();
+
+      //char[] cArray = byteString.toCharArray();
+      //StringBuilder byteString = new StringBuilder();
+      for (int i = 0; i < cArray.length; i++) {
+         byte bItem = (byte) Integer.parseInt(String.valueOf(cArray[i]));
+         if (bItem == currentNode.binary && currentNode.id != -1) break;
+         if (bItem == 1){
+            currentNode = currentNode.firstChild.sibling;
+         } else if (bItem == 0) {
+            currentNode = currentNode.firstChild;
+         }
+      }
+      return currentNode.id;
    }
 }
